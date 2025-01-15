@@ -67,12 +67,45 @@ class MathPlotterApp(QMainWindow):
         return QFont("Arial", 12)
 
     def validate_function(self, func):
-        pattern = r"^[0-9x+\-*/^(). logsqrt]+$"
-        return bool(re.match(pattern, func))
+        # Allowable characters and functions
+        pattern = r"^[0-9x+\-*/^().\sloglog10log2sqrt]+$"
+        
+        if not re.match(pattern, func):
+            return False
+        
+        # Check for consecutive operators (e.g., **, //, ++)
+        if re.search(r"[\^*/+\-]{2,}", func):
+            return False
+        
+        # Check parentheses pairing
+        stack = []
+        for char in func:
+            if char == '(':
+                stack.append(char)
+            elif char == ')':
+                if not stack:
+                    return False
+                stack.pop()
+        if stack: 
+            return False
+    
+        if func.strip()[0] in "+-*/^" or func.strip()[-1] in "+-*/^":
+            return False
+
+        # check for negative numbers in sqrt and log functions
+        if re.search(r"sqrt\(\s*-", func):
+            return False
+
+        if re.search(r"log.*\(\s*-", func):
+            return False
+
+
+        return True
+
 
     def parse_function(self, func):
         try:
-            func = func.replace('^', '**').replace('sqrt', 'np.sqrt').replace('log10', 'np.log10')
+            func = func.replace('^', '**').replace('sqrt', 'np.sqrt').replace('log', 'np.log')
             def parsed_func(x):
                 return eval(func)
             return parsed_func
@@ -103,7 +136,7 @@ class MathPlotterApp(QMainWindow):
             y2 = np.array([func2(val) if val != 0 else np.nan for val in x]) 
 
             def diff(x):
-                if x == 0:  # Avoid division by zero for the difference
+                if np.isnan(x) or x == 0:  # Avoid division by zero for the difference
                     return np.nan
                 return func1(x) - func2(x)
 
